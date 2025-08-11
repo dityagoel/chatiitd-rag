@@ -14,3 +14,7 @@ Clubs and extracurricular
 - Mercury announcements (clubs etc)
 - BSW specific pages
 - BHM, BRCA websites, BSP selected sections
+
+## Current questions
+- How to deal with courses offered? Need to update periodically (once a week)
+- New CoS 2025-26?
