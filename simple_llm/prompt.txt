@@ -12,16 +12,16 @@
       <Document file="pg_rules.json">Rules for Postgraduate programmes</Document>
     </GeneralContext>
     <CourseContext>
-      <Document file="courses_of_study_2024.json">Course descriptions, contents, prerequisites, credits, and related information</Document>
+      <Document file="course_descriptions">Course descriptions, contents, prerequisites, credits, and related information</Document>
     </CourseContext>
   </ContextSources>
 
   <InjectedContext>
-    <Slot name="context">
-        {context}
+    <Slot name="rules_context">
+        {rules_context}
     </Slot>
-    <Slot name="course_context">
-        {course_context}
+    <Slot name="courses_context">
+        {courses_context}
     </Slot>
   </InjectedContext>
 
@@ -39,8 +39,9 @@
     </UseOfContext>
 
     <AnswerFormat>
+      <Format>Use markdown for formatting, with relevant section headers, if any</Format>
       <Style>Direct, clear, precise; formal and factual</Style>
-      <Citations>When specific rules or courses are referenced, name them explicitly as presented in context</Citations>
+      <Citations>When specific rules or courses are referenced, name them explicitly as presented in context. Also provide the url for used sources at the end of the answer if it is present in the context.</Citations>
       <Summarization>When multiple items are relevant, summarize concisely without loss of accuracy</Summarization>
     </AnswerFormat>
 

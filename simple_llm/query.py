@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 import litellm
 import config
 import re
+import json
 
 # Connect to services
 qdrant = QdrantClient(url=config.QDRANT_URL)
@@ -11,49 +12,59 @@ embedder = SentenceTransformer(config.EMBED_MODEL)
 
 def query_bot(user_query: str, top_k: int = 5, show_sources: bool = False) -> str:
     print('Received query')
-    """
-    Query pipeline:
-    1. Make the LLM write queries for
-    """
-    # Step 1: embed query
-    query_vec = embedder.encode(user_query).tolist()
+    # Generate search terms using LLM
+    init_prompt = ''
+    with open('init_prompt.txt') as file:
+        init_prompt = file.read()#.replace('{user_query}', user_query)
 
-    # Step 2: search Qdrant
-    results = qdrant.search(
-        collection_name=config.QDRANT_COLLECTION,
-        query_vector=query_vec,
-        limit=top_k,
+    # print('PROMPT ------\n', prompt)
+    response = litellm.completion(
+        model=config.LITELLM_MODEL,   # e.g. "gemini/gemini-1.5-flash"
+        messages=[{"role": "system", "content": init_prompt}, {"role": "user", "content": user_query}]
     )
+    lines = str(response["choices"][0]["message"]["content"]).split('\n')
+    lines = [l for l in lines if l.strip() != '' and not l.startswith('```')]
 
-    # look for course names in query and look them up directly
-    course_pattern = r'\b([A-Z]{3}\d{3,4})\b'
-    course_matches = re.findall(course_pattern, user_query)
-    course_context = []
-    for course in course_matches:
-        course_results = qdrant.search(
-            collection_name=config.QDRANT_COLLECTION,
-            query_vector=embedder.encode(course).tolist(),
-            query_filter= Filter(
-                must=[
-                    FieldCondition(
-                        key="section",
-                        match=MatchValue(value=course)
-                    )
-                ]
-            )
-        )
-        if course_results:
-            course_context.append(course_results[0].payload)
+    rules_query = ''
+    courses_query = ''
+    try:
+        search_terms = json.loads(''.join(lines))
+        print("Generated search terms:", search_terms)
+        if search_terms.get('irrelevant_query', False):
+            return "The question is not relevant to IIT Delhi academics."
+        rules_query = search_terms.get('cos_query', None)
+        courses_query = search_terms.get('course_search', None)
+        
+    except json.JSONDecodeError as e:
+        err = "Error parsing JSON from LLM response:" + str(e)
+        print(err)
+        return err
 
-    context = str([r.payload for r in results]) if results else "No relevant context found."
-    course_context = str(course_context) if results else "No relevant context found."
+    # Embed queries and search in the database
+    q_rules = embedder.encode(rules_query).tolist() if rules_query else []
+    q_courses = embedder.encode(courses_query).tolist() if courses_query else []
+
+    # search Qdrant
+    rules_results = qdrant.search(
+        collection_name='rules',
+        query_vector=q_rules,
+        limit=top_k,
+    ) if rules_query else None
+    courses_results = qdrant.search(
+        collection_name='courses',
+        query_vector=q_courses,
+        limit=top_k,
+    ) if courses_query else None
+
+    rules_context = str([r.payload for r in rules_results]) if rules_results else "No relevant context found."
+    courses_context = str([r.payload for r in courses_results]) if courses_results else "No relevant context found."
     print('collected context')
 
-    # Step 3: generate answer with Gemini
+    # generate answer with Gemini
     # read prompt from prompt.txt
     prompt = ''
     with open('prompt.txt') as file:
-        prompt = file.read().replace('{context}', context).replace('{course_context}', course_context).replace('{query}', user_query)
+        prompt = file.read().replace('{courses_context}', courses_context).replace('{rules_context}', rules_context).replace('{query}', user_query)
 
     # print('PROMPT ------\n', prompt)
     response = litellm.completion(
@@ -63,9 +74,5 @@ def query_bot(user_query: str, top_k: int = 5, show_sources: bool = False) -> st
 
     answer = response["choices"][0]["message"]["content"]  # type: ignore
     print(answer)
-
-    if show_sources:
-        sources = [r.payload for r in results]
-        return answer + "\n\n---\n📚 Sources:\n" + "\n".join(str(s) for s in sources)
 
     return answer
