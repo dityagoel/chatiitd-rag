@@ -73,6 +73,4 @@ def query_bot(user_query: str, top_k: int = 5, show_sources: bool = False) -> st
     )
 
     answer = response["choices"][0]["message"]["content"]  # type: ignore
-    print(answer)
-
     return answer
