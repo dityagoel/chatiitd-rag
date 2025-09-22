@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS courses (
     hours_tutorial INTEGER,
     hours_practical INTEGER,
     credits INTEGER,
-    prereq TEXT
+    prereq TEXT,
+    overlap TEXT
 );
 
 CREATE TABLE IF NOT EXISTS overlaps (
@@ -58,14 +59,22 @@ def parse_json(filename):
     return courses
 
 def insert_in_db(cursor, course): # code name desc hours (lec, tut, practical), credits, prereqs
-    data = (course['code'], course['name'], course['description'], course['hours']['lecture'], course['hours']['tutorial'], course['hours']['practical'], course['credits'], course['prereqs'])
-    cursor.execute("INSERT OR REPLACE INTO courses (code, name, description, hours_lecture, hours_tutorial, hours_practical, credits, prereq) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", data)
+    data = (course['code'], course['name'], course['description'], course['hours']['lecture'], course['hours']['tutorial'], course['hours']['practical'], course['credits'], course['prereqs'], course['overlap'])
+    cursor.execute("INSERT OR REPLACE INTO courses (code, name, description, hours_lecture, hours_tutorial, hours_practical, credits, prereq, overlap) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", data)
     # add overlaps
-    for overlap in course['overlaps']:
-        data = (course['code'], overlap)
+    for overlap in course['overlap'].split(','):
+        code = overlap.strip()
+        if not code: continue
+        data = (course['code'], code)
         cursor.execute("INSERT INTO overlaps (code_1, code_2) VALUES (?, ?)", data)
 
 if __name__ == "__main__":
-    init_db()
-    courses = parse_json('courses.json')
+    init_db(db_path="courses.sqlite")
+    courses = parse_json('sources/processed/courses.json')
+    conn = sqlite3.connect("courses.sqlite")
+    cursor = conn.cursor()
+    for code, course in courses.items():
+        insert_in_db(cursor, course)
+    conn.commit()
+    conn.close()
  
