@@ -169,10 +169,13 @@ def get_rules_section_tool(section_name: str) -> str:
     1.13.4 Attendance requirements for assistantship
     1.13.5 Further regulations governing Ph.D. students
     ---
-    For any general query regarding 'minor degree', refer to section '2. CAPABILITY-LINKED OPTIONS FOR UNDERGRADUATE STUDENTS'.
-    For a minor degree or specialisation in any specific department, refer to the respective sub-section of 2.1 or 2.2.
+    For any general query regarding 'minor degree', use the tool with section '2. CAPABILITY-LINKED OPTIONS FOR UNDERGRADUATE STUDENTS' as input.
+    For a minor degree or specialisation in any specific department, call the tool on the respective sub-section of 2.1 or 2.2.
     """
-    sections = [sec for sec in rules_sections if sec['section'].lower() == section_name.lower()]
+    sections = [sec for sec in rules_sections if sec['section'].lower().strip() == section_name.lower().strip()]
+    print(f'---get_rules_section_tool called with section_name="{section_name}"---')
+    print("Found sections:")
+    print(sections)
     if sections:
         return json.dumps(sections[0])
     else:
@@ -190,3 +193,5 @@ def get_course_data_tool(course_code: str) -> str:
         return json.dumps(courses_found[0])
     else:
         return "Course not found."
+
+# print(get_rules_section_tool("2. CAPABILITY-LINKED OPTIONS FOR UNDERGRADUATE STUDENTS"))
