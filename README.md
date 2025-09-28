@@ -14,6 +14,8 @@ GOOGLE_API_KEY="Gemini api key"
 QDRANT_URL="http://localhost:6333"
 ```
 
-4) cd into `simple-llm` and Run the following command
+4) Run the script
 ```
-python main.py query 'Your query goes here'
+cd agentic_chatbot
+python agent.py
+``` 

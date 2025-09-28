@@ -20,12 +20,10 @@ def get_rules_section_tool(section_name: str) -> str:
     Fetches a specific section from a given document in the rules collection.
     The available sections are given below. Mention the exact section name to retrieve it.
     General Rules:
-    1. Introduction
     1.1 Background
     1.2 Departments, Centres and Schools
     1.3 Programmes Offered
     1.4 Entry Number
-    2. COURSE STRUCTURE AND credit SYSTEM
     1.5 Honour Code
     2.1 Course Numbering Scheme
     2.2 Credit System
@@ -39,7 +37,6 @@ def get_rules_section_tool(section_name: str) -> str:
     2.9.1 Grade points
     2.9.2 Description of grades
     2.10 Evaluation of Performance
-    3. REGISTRATION AND attendance
     3.1 Registration
     3.2 Registration and Student Status
     3.3 Advice on Courses
@@ -58,15 +55,13 @@ def get_rules_section_tool(section_name: str) -> str:
     3.16 Attendance Rule
     
     Undergraduate Rules:
-    1.1 Overall Requirements
-    1.1.1 B.Tech.
-    1.1.2 B.Des.
-    1.1.3 Dual degree programmes
-    1.2 Breakup of Degree Requirements
-    1.2.1 Earned Credit Requirements for B.Tech.
-    1.2.2 Earned Credit Requirements for B.Des.
-    1.2.3 Degree Grade Point Average (DGPA) Requirement
-    1.2.4 Audit Courses
+    1.1.1 Overall Requirements: B.Tech.
+    1.1.2 Overall Requirements: B.Des.
+    1.1.3 Overall Requirements: Dual degree programmes
+    1.2.1 Breakup of Degree Requirements: Earned Credit Requirements for B.Tech.
+    1.2.2 Breakup of Degree Requirements: Earned Credit Requirements for B.Des.
+    1.2.3 Breakup of Degree Requirements: Degree Grade Point Average (DGPA) Requirement
+    1.2.4 Breakup of Degree Requirements: Audit Courses
     1.3 Non-graded Core Requirement
     1.4 Minimum and Maximum Durations for Completing Degree Requirements
     1.5 Absence During the Semester
@@ -102,7 +97,6 @@ def get_rules_section_tool(section_name: str) -> str:
     2.1.20 Minor Area / Departmental Specialization in
     2.1.21 Interdisciplinary Specialization in Biodesign
     2.1.22 Interdisciplinary Specialization in Robotics
-    2.2 Departmental Specialisations
     2.2.1 Departmental Specialization in Applications and
     2.2.2 Departmental Specialization in Architecture and
     2.2.3 Departmental Specialization in Data Analytics and
@@ -128,7 +122,7 @@ def get_rules_section_tool(section_name: str) -> str:
     2.2.23 Departmental Specialization in Systems and Control (Department of Electrical Engineering)
     2.2.24 Departmental Specialization in VLSI and Embedded Systems (Department of Electrical Engineering)
     2.2.25 Departmental Specialization in Polymeric Materials (Department of Materials Science and Engineering)
-    2.2.26 Departmental Specialization in Metallurgy (Department of Materials Science and Engineering)
+    2.1.26 Departmental Specialization in Metallurgy (Department of Materials Science and Engineering)
     3. NON-GRADED CORE FOR UNDERGRADUATE STUDENTS
     3.1 Introduction to Engineering and Programme
     3.2 Language and Writing Skills
@@ -137,7 +131,6 @@ def get_rules_section_tool(section_name: str) -> str:
     3.5 Communication Skills / Seminar
     3.6 Design / Practical Experience
     3.6.1 Management of Non-graded DPE Units
-    3.6.2 Activities Covered Under Design / Practical Experience
     3.6.2.1 Specialized Courses Related to Design / Practical Experience (Maximum 2 Units)
     3.6.2.2 Semester / Summer / Winter Projects Under the Guidance of Institute Faculty (Maximum 2 Units)
     3.6.2.3 Regular Courses with Optional Design / Practical Experience Component (Maximum 2 Units)
@@ -149,7 +142,6 @@ def get_rules_section_tool(section_name: str) -> str:
     3.7 Overlapping Activities
     
     Postgraduate Rules:
-    1. POSTGRADUATE DEGREE REQUIREMENTS, REGULATIONS AND PROCEDURES
     1.1 Degree Requirements
     1.2 Continuation Requirements
     1.3 Minimum Student Registration for a Programme

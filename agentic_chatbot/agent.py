@@ -9,13 +9,16 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 from qdrant_client.http.models import ScoredPoint
 from langchain_core.documents import Document
 import json
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from tools import get_rules_section_tool, get_course_data_tool
+from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_community.chat_message_histories import SQLChatMessageHistory
 
 
 # Load environment variables from a .env file
@@ -60,7 +63,7 @@ class QdrantWithObjectPayload(Qdrant):
 # os.environ["GOOGLE_API_KEY"] = "YOUR_GOOGLE_API_KEY"
 
 # Initialize the LLM and Embeddings model
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
@@ -142,9 +145,11 @@ tools = [rules_tool, courses_tool, get_rules_section_tool, get_course_data_tool]
 # --- 4. Create the Conversational Agent ---
 
 # We'll use a prompt that supports chat history. This is suitable for tool-calling models like Gemini.
+with open('system_prompt.txt', 'r') as file:
+    system_prompt = file.read()
 agent_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a helpful assistant meant to assist students of Indian Institute of Technology Delhi with their academic queries. Respond to all irrelevant questions with 'Sorry, I can only respond to academic queries.' Prioritise gathering new context by calling tools. NEVER ASSUME ANY INFORMATION. ALWAYS STATE SOURCES OF INFORMATION. Format responses in markdown."),
+        ("system", system_prompt),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad"),
@@ -154,6 +159,26 @@ agent_prompt = ChatPromptTemplate.from_messages(
 agent = create_tool_calling_agent(llm, tools, agent_prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
+def invoke_agent(input_dict):
+    return agent_executor.invoke(input_dict)
+
+runnable_agent = RunnableLambda(invoke_agent)
+runnable_agent_with_history = RunnableWithMessageHistory(
+    # runnable_agent,
+    agent_executor,
+    lambda session_id: SQLChatMessageHistory(
+        session_id=session_id, connection_string="sqlite:///messages.db"
+    ),
+    input_messages_key="input",
+    history_messages_key="chat_history"
+)
+
+def invoke_memory_agent(input_dict, session_id=None):
+    if not session_id:
+        return runnable_agent.invoke(input_dict)
+    session_id = str(session_id)
+    config = {"configurable": {"session_id": session_id}}
+    return runnable_agent_with_history.invoke(input_dict, config=config)
 
 print("--- IIT Delhi Academic Chatbot Initialized (Model: Gemini Flash, Reranker: BAAI/bge-reranker-base) ---")
 print("Ask me about courses or institute rules.")
@@ -169,14 +194,19 @@ while True:
         break
 
     # The agent now takes both the input and the chat history
-    response = agent_executor.invoke({
-        "input": query,
-        "chat_history": chat_history
-    })
+    # response = agent_executor.invoke({
+    #     "input": query,
+    #     "chat_history": chat_history
+    # })
+    response = invoke_memory_agent({
+        "input": query
+    }, session_id="devansh")
 
     # Append the latest interaction to the chat history
     chat_history.append(HumanMessage(content=query))
     chat_history.append(AIMessage(content=response["output"]))
+
+    print(response)
 
     print(f"Assistant: {response['output']}")
     print("\n" + "-"*50 + "\n")
