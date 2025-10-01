@@ -1,0 +1,9 @@
+[13:48:28 2025-09-29] FETCHING Version 2.42.0
+[13:48:28 2025-09-29] CREATING /home/devansh/.spicetify
+[13:48:28 2025-09-29] DOWNLOADING https://github.com/spicetify/cli/releases/download/v2.42.0/spicetify-2.42.0-linux-amd64.tar.gz
+[13:48:30 2025-09-29] EXTRACTING /home/devansh/.spicetify/spicetify.tar.gz
+[13:48:30 2025-09-29] SETTING EXECUTABLE PERMISSIONS TO /home/devansh/.spicetify/spicetify
+[13:48:30 2025-09-29] REMOVING /home/devansh/.spicetify/spicetify.tar.gz
+[13:48:30 2025-09-29] APPENDING /home/devansh/.spicetify to PATH in /home/devansh/.zshrc
+[13:48:30 2025-09-29] spicetify v2.42.0 was installed successfully to /home/devansh/.spicetify
+[13:48:30 2025-09-29] Run 'spicetify --help' to get started

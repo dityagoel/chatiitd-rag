@@ -10,10 +10,68 @@ def read_jsonl(filename):
         for line in f:
             res.append(json.loads(line))
     return res
+
 rules_sections = read_jsonl('../sources/jsonl/all_rules.jsonl')
 courses = read_jsonl('../sources/jsonl/courses.jsonl')
+offerings = read_jsonl('../sources/jsonl/courses_offered.jsonl')
 
 # TOOLS
+@tool
+def get_course_data_tool(course_code: str) -> str:
+    """
+    This tool fetches information about a specific course offered at IIT Delhi. The input is a course code (e.g., 'COL100', 'ELL101').
+    It returns information about the course as well as its offerings (data about course coordinator, slot, etc.) in JSON format.
+    A course code consists of a three-letter alphabet code followed by a three or four digit number.
+    Use this tool whenever you encounter a course code in the prompt.
+    """
+    courses_found = [course for course in courses if course['code'].lower() == course_code.lower()]
+    if courses_found:
+        offered = [o for o in offerings if o['course_code'].lower().startswith(course_code.lower())]
+        return json.dumps({
+            "course": courses_found[0],
+            "offerings": offered
+        })
+    else:
+        return "Course not found."
+    
+programme_prompt = ''
+with open('../sources/programme_structures/prompt.md', 'r') as f:
+    programme_prompt = f.read()
+
+@tool
+def get_programme_structure_tool(programme_code: str) -> str:
+    """
+    Fetches the programme structure for a given programme code.
+    The JSON object you will receive contains all the necessary information about a specific engineering discipline, including its credit requirements, course categories, and a recommended semester-wise course plan.
+    Use this tool whenever you need to know about the courses in a programme code in the prompt.
+    Available programme codes with their respective degrees are:
+    'AM1': Applied Mechanics (B.Tech.)
+    'BB1': Biochemical Engineering (B.Tech.)
+    'CE1': Civil Engineering (B.Tech.)
+    'CH1': Chemical Engineering (B.Tech.)
+    'CH7': Chemical Engineering (Dual Degree)
+    'CS1': Computer Science and Engineering (B.Tech.)
+    'CS5': Computer Science and Engineering (Dual Degree)
+    'EE1': Electrical Engineering (B.Tech.)
+    'EE3': Electrical Engineering Power and Automation (B.Tech.)
+    'ES1': Energy Engineering (B.Tech.)
+    'ME1': Mechanical Engineering (B.Tech.)
+    'ME2': Production and Industrial Engineering (B.Tech.)
+    'MS1': Materials Science and Engineering (B.Tech.)
+    'MT1': Mathematics and Computing (B.Tech.)
+    'MT6': Mathematics and Computing (Dual Degree)
+    'PH1': Engineering Physics (B.Tech.)
+    'TT1': Textile Engineering (B.Tech.)
+    """
+    programme_code = programme_code.upper().strip()
+    try:
+        with open(f'../sources/programme_structures/{programme_code}.json', 'r') as f:
+            programme_data = f.read()
+        return programme_prompt + "\n\n" + programme_data
+    except FileNotFoundError:
+        return "Programme code not found."
+
+
 @tool
 def get_rules_section_tool(section_name: str) -> str:
     """
@@ -172,18 +230,3 @@ def get_rules_section_tool(section_name: str) -> str:
         return json.dumps(sections[0])
     else:
         return "Section not found."
-
-@tool
-def get_course_data_tool(course_code: str) -> str:
-    """
-    This tool fetches information about a specific course offered at IIT Delhi. The input is a course code (e.g., 'COL100', 'ELL101').
-    A course code consists of a three-letter alphabet code followed by a three or four digit number.
-    Use this tool whenever you encounter a course code in the prompt.
-    """
-    courses_found = [course for course in courses if course['code'].lower() == course_code.lower()]
-    if courses_found:
-        return json.dumps(courses_found[0])
-    else:
-        return "Course not found."
-
-# print(get_rules_section_tool("2. CAPABILITY-LINKED OPTIONS FOR UNDERGRADUATE STUDENTS"))

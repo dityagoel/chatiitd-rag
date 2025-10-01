@@ -68,13 +68,29 @@ def insert_in_db(cursor, course): # code name desc hours (lec, tut, practical), 
         data = (course['code'], code)
         cursor.execute("INSERT INTO overlaps (code_1, code_2) VALUES (?, ?)", data)
 
+def read_jsonl(filename):
+    res = []
+    with open(filename, 'r') as f:
+        for line in f:
+            res.append(json.loads(line))
+    return res
+
+def insert_offering(cursor, offering): # code year semester coordinator slot
+    data = (offering['course_code'], offering['year'], offering['semester'], offering['instructor'], offering['slot'])
+    cursor.execute("INSERT INTO offerings (code, year, semester, coordinator, slot) VALUES (?, ?, ?, ?, ?)", data)
+
 if __name__ == "__main__":
     init_db(db_path="courses.sqlite")
     courses = parse_json('sources/processed/courses.json')
+    offerings = read_jsonl('sources/jsonl/courses_offered.jsonl')
+
     conn = sqlite3.connect("courses.sqlite")
     cursor = conn.cursor()
+    
     for code, course in courses.items():
         insert_in_db(cursor, course)
+    for offering in offerings:
+        insert_offering(cursor, offering)
     conn.commit()
     conn.close()
  

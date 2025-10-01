@@ -15,7 +15,7 @@ from qdrant_client.http.models import ScoredPoint
 from langchain_core.documents import Document
 import json
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from tools import get_rules_section_tool, get_course_data_tool
+from tools import get_rules_section_tool, get_course_data_tool, get_programme_structure_tool
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_community.chat_message_histories import SQLChatMessageHistory
@@ -121,13 +121,8 @@ rules_tool = create_retriever_tool(
     rules_compression_retriever,
     "search_iitd_rules",
     """
-    Use this tool to answer questions about IIT Delhi's rules for undergraduate or postgraduate students.
-    The documents contain headers such as:
-    - Grading Policy
-    - Degree Requirements
-    - Code of Conduct
-    - Academic Integrity
-    - Hostel Regulations
+    Use this tool to semantically search for certain queries about IIT Delhi's rules for undergraduate or postgraduate students.
+    Use this tool when you cannot determine the section of rules to look up, or when the user query is more general.
     """,
 )
 
@@ -136,10 +131,11 @@ courses_tool = create_retriever_tool(
     "search_iitd_courses",
     """
     Use this tool to find information about specific courses offered at IIT Delhi, but you want to search by topic or keywords rather than course code.
+    If the course code is known, use the get_course_data_tool instead.
     """,
 )
 
-tools = [rules_tool, courses_tool, get_rules_section_tool, get_course_data_tool]
+tools = [rules_tool, courses_tool, get_rules_section_tool, get_course_data_tool, get_programme_structure_tool]
 
 
 # --- 4. Create the Conversational Agent ---
@@ -187,26 +183,29 @@ print("Type 'quit' to exit.")
 # Initialize chat history
 chat_history = []
 
-# --- 5. Run the Agent in a Conversational Loop ---
-while True:
-    query = input("You: ")
-    if query.lower() == "quit":
-        break
 
-    # The agent now takes both the input and the chat history
-    # response = agent_executor.invoke({
-    #     "input": query,
-    #     "chat_history": chat_history
-    # })
-    response = invoke_memory_agent({
-        "input": query
-    }, session_id="devansh")
+def main():
+    """Runs the agent in a conversational command-line loop."""
+    print("--- IIT Delhi Academic Chatbot Initialized (Model: Gemini Flash, Reranker: BAAI/bge-reranker-base) ---")
+    print("Ask me about courses or institute rules.")
+    print("Type 'quit' to exit.")
 
-    # Append the latest interaction to the chat history
-    chat_history.append(HumanMessage(content=query))
-    chat_history.append(AIMessage(content=response["output"]))
+    # A unique session ID for the command-line interaction
+    session_id = "cli_session"
+    
+    # --- 5. Run the Agent in a Conversational Loop ---
+    while True:
+        query = input("You: ")
+        if query.lower() == "quit":
+            break
 
-    print(response)
+        # The agent now takes both the input and a session_id
+        response = invoke_memory_agent({
+            "input": query
+        }, session_id=session_id)
 
-    print(f"Assistant: {response['output']}")
-    print("\n" + "-"*50 + "\n")
+        print(f"Assistant: {response['output']}")
+        print("\n" + "-"*50 + "\n")
+
+if __name__ == "__main__":
+    main()
