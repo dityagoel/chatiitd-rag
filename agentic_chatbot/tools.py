@@ -17,18 +17,19 @@ offerings = read_jsonl('../sources/jsonl/courses_offered.jsonl')
 
 # TOOLS
 @tool
-def get_course_data_tool(course_code: str) -> str:
+def get_course_data_tool(course_codes: list[str]) -> str:
     """
-    This tool fetches information about a specific course offered at IIT Delhi. The input is a course code (e.g., 'COL100', 'ELL101').
-    It returns information about the course as well as its offerings (data about course coordinator, slot, etc.) in JSON format.
+    This tool fetches information about a specific course offered at IIT Delhi. The input is a list of course codes (e.g., ['COL100'], ['ELL101', 'ELP101']).
+    It returns information about the courses as well as its offerings (data about course coordinator, slot, etc.) in JSON format.
     A course code consists of a three-letter alphabet code followed by a three or four digit number.
     Use this tool whenever you encounter a course code in the prompt.
     """
-    courses_found = [course for course in courses if course['code'].lower() == course_code.lower()]
+    codes = [code.strip().lower() for code in course_codes]
+    courses_found = [course for course in courses if course['code'].lower() in codes]
     if courses_found:
-        offered = [o for o in offerings if o['course_code'].lower().startswith(course_code.lower())]
+        offered = [{'course_code': o['course_code'], 'year': o['year'], 'semester': o['semester'], 'instructor': o['instructor']} for o in offerings if o['course_code'].lower().startswith(tuple(codes))]
         return json.dumps({
-            "course": courses_found[0],
+            "courses": courses_found,
             "offerings": offered
         })
     else:
@@ -37,6 +38,51 @@ def get_course_data_tool(course_code: str) -> str:
 programme_prompt = ''
 with open('../sources/programme_structures/prompt.md', 'r') as f:
     programme_prompt = f.read()
+
+@tool
+def query_sqlite_db_tool(query: str) -> str:
+    """
+    This tool allows you to execute SQL queries on the 'iitd_academic.db' SQLite database.
+    The database contains tables with information about courses and offerings at IIT Delhi.
+    Use this tool when you need to retrieve specific information that can be obtained through SQL queries.
+    Ensure that your SQL queries are well-formed and relevant to the database schema.
+    You are only allowed to run SELECT queries.
+    Schema:
+    CREATE TABLE courses (
+        code TEXT PRIMARY KEY,
+        name TEXT,
+        description TEXT,
+        hours_lecture INTEGER,
+        hours_tutorial INTEGER,
+        hours_practical INTEGER,
+        credits INTEGER,
+        prereq TEXT,
+        overlap TEXT
+    );
+    CREATE TABLE offerings (
+        id INTEGER PRIMARY KEY,
+        code TEXT REFERENCES courses(code),
+        year TEXT,
+        semester INTEGER,
+        coordinator TEXT,
+        slot TEXT
+    );
+
+    Note: Avoid including the description field of courses table if it is not required.
+    """
+    if not query.strip().lower().startswith('select'):
+        return "Invalid. Only SELECT queries are allowed."
+    try:
+        conn = sqlite3.connect('file:../courses.sqlite?mode=ro', uri=True)
+        cursor = conn.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        columns = [description[0] for description in cursor.description]
+        results = [dict(zip(columns, row)) for row in rows]
+        conn.close()
+        return json.dumps(results)
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
 
 @tool
 def get_programme_structure_tool(programme_code: str) -> str:
@@ -230,3 +276,5 @@ def get_rules_section_tool(section_name: str) -> str:
         return json.dumps(sections[0])
     else:
         return "Section not found."
+
+# print(query_sqlite_db_tool('SELECT * from courses WHERE code LIKE "COL1%"'))
