@@ -63,7 +63,7 @@ class QdrantWithObjectPayload(Qdrant):
 # os.environ["GOOGLE_API_KEY"] = "YOUR_GOOGLE_API_KEY"
 
 # Initialize the LLM and Embeddings model
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0,google_api_key=os.environ.get("GOOGLE_API_KEY"))
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
