@@ -15,22 +15,19 @@ from qdrant_client.http.models import ScoredPoint
 from langchain_core.documents import Document
 import json
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from tools import get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool,generate_degree_plan_tool
+from agent.tools import get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool, generate_degree_plan_tool
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_community.chat_message_histories import SQLChatMessageHistory
-from langchain_core.runnables import RunnableConfig 
-
+from shared import config
 
 # Load environment variables from a .env file
 load_dotenv('../.env')
 load_dotenv('.env')
 
+# This class fills page_content with a json string of the entire document
+# This is required for the ccourses collection
 class QdrantWithObjectPayload(Qdrant):
-    """
-    Custom Qdrant vector store class that handles object payloads.
-    It serializes the 'page_content' into a JSON string if it is a dictionary.
-    """
     def _document_from_scored_point(
         self,
         scored_point: ScoredPoint,
@@ -41,39 +38,27 @@ class QdrantWithObjectPayload(Qdrant):
         """Overrides the base method to handle object-like payloads."""
         payload = scored_point.payload or {}
         page_content = payload.get(content_payload_key)
-        
-        # If the content is a dictionary (i.e., a JSON object), serialize it
+                # If the content is a dictionary (i.e., a JSON object), serialize it
         if isinstance(page_content, dict):
-            # Using indent for better readability for the LLM
-            page_content = json.dumps(page_content, indent=2)
-        
+            page_content = json.dumps(page_content, indent=2)        
         metadata = payload.get(metadata_payload_key) or {}
-        
         # Add score and id to metadata, similar to the base class implementation
         metadata["_score"] = scored_point.score
         metadata["_id"] = scored_point.id
-
         return Document(
             page_content=page_content or "", # Ensure page_content is not None
             metadata=metadata,
         )
 
-
-# --- 0. Setup ---
-# Set up the necessary API keys. You will only need a Google API Key for Gemini.
-# os.environ["GOOGLE_API_KEY"] = "YOUR_GOOGLE_API_KEY"
-
 # Initialize the LLM and Embeddings model
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0,google_api_key=os.environ.get("GOOGLE_API_KEY"))
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+llm = ChatGoogleGenerativeAI(model=config.llm_model, temperature=0,google_api_key=os.environ.get("GOOGLE_API_KEY"))
+embeddings = HuggingFaceEmbeddings(model_name=config.embedding_model)
 
 
-# --- 1. Connect to Existing Qdrant RAG Data Sources ---
+# Connect to Existing Qdrant RAG Data Sources
 
-# Initialize the Qdrant client to connect to your local instance.
-client = qdrant_client.QdrantClient(url="http://localhost:6333")
+client = qdrant_client.QdrantClient(url=config.qdrant_url)
 
-# Connect to the existing 'rules' collection
 rules_vector_store = QdrantWithObjectPayload(
     client=client,
     collection_name="rules",
@@ -81,9 +66,8 @@ rules_vector_store = QdrantWithObjectPayload(
     content_payload_key='content',
     metadata_payload_key='metadata'
 )
-rules_retriever = rules_vector_store.as_retriever()
+rules_retriever = rules_vector_store.as_retriever(search_kwargs={'k': config.rag_top_k})
 
-# Connect to the existing 'courses' collection
 courses_vector_store = QdrantWithObjectPayload(
     client=client,
     collection_name="courses",
@@ -91,20 +75,14 @@ courses_vector_store = QdrantWithObjectPayload(
     content_payload_key='description',
     metadata_payload_key='metadata'
 )
-courses_retriever = courses_vector_store.as_retriever()
+courses_retriever = courses_vector_store.as_retriever(search_kwargs={'k': config.rag_top_k})
 
-# --- 2. Add a Free, Self-Run Reranking Step ---
+# Reranking step
+model = HuggingFaceCrossEncoder(model_name=config.reranking_model)
+# top n documents from reranking scores
+compressor = CrossEncoderReranker(model=model, top_n=config.rerank_top_n)
 
-# Initialize a free, self-run cross-encoder model from HuggingFace.
-# The first time you run this, it will download the model weights (~227MB).
-# This model runs locally on your machine (CPU or GPU if available).
-model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
-
-# The compressor uses the cross-encoder model to rerank documents.
-# It returns the top 3 most relevant documents.
-compressor = CrossEncoderReranker(model=model, top_n=3)
-
-# Create compression retrievers that will use the local reranker.
+# these retrievers implement reranking
 rules_compression_retriever = ContextualCompressionRetriever(
     base_compressor=compressor, base_retriever=rules_retriever
 )
@@ -112,11 +90,6 @@ courses_compression_retriever = ContextualCompressionRetriever(
     base_compressor=compressor, base_retriever=courses_retriever
 )
 
-
-# --- 3. Define Tools with Refined Descriptions ---
-
-# The descriptions are crucial. They guide the agent on when to use each tool.
-# We will now use the compression retrievers in our tools.
 
 rules_tool = create_retriever_tool(
     rules_compression_retriever,
@@ -136,13 +109,10 @@ courses_tool = create_retriever_tool(
     """,
 )
 
-tools = [rules_tool, courses_tool, get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool,generate_degree_plan_tool]
+tools = [rules_tool, courses_tool, get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool, generate_degree_plan_tool]
 
 
-# --- 4. Create the Conversational Agent ---
-
-# We'll use a prompt that supports chat history. This is suitable for tool-calling models like Gemini.
-with open('system_prompt.txt', 'r') as file:
+with open(config.system_prompt_path, 'r') as file:
     system_prompt = file.read()
 agent_prompt = ChatPromptTemplate.from_messages(
     [
@@ -164,7 +134,7 @@ runnable_agent_with_history = RunnableWithMessageHistory(
     # runnable_agent,
     agent_executor,
     lambda session_id: SQLChatMessageHistory(
-        session_id=session_id, connection_string="sqlite:///messages.db"
+        session_id=session_id, connection_string=config.messages_conn_string
     ),
     input_messages_key="input",
     history_messages_key="chat_history"
@@ -174,11 +144,8 @@ def invoke_memory_agent(input_dict, session_id=None):
     if not session_id:
         return runnable_agent.invoke(input_dict)
     session_id = str(session_id)
-    config = RunnableConfig(configurable={"session_id": session_id})
-    return runnable_agent_with_history.invoke(input_dict, config=config)
-print("--- IIT Delhi Academic Chatbot Initialized (Model: Gemini Flash, Reranker: BAAI/bge-reranker-base) ---")
-print("Ask me about courses or institute rules.")
-print("Type 'quit' to exit.")
+    agent_config = {"configurable": {"session_id": session_id}}
+    return runnable_agent_with_history.invoke(input_dict, config=agent_config)
 
 # Initialize chat history
 chat_history = []
@@ -186,7 +153,7 @@ chat_history = []
 
 def main():
     """Runs the agent in a conversational command-line loop."""
-    print("--- IIT Delhi Academic Chatbot Initialized (Model: Gemini Flash, Reranker: BAAI/bge-reranker-base) ---")
+    print("--- IIT Delhi Academic Chatbot Initialized ---")
     print("Ask me about courses or institute rules.")
     print("Type 'quit' to exit.")
 

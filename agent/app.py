@@ -2,7 +2,7 @@
 
 import gradio as gr
 import uuid
-from agent import invoke_memory_agent
+from agent.agent import invoke_memory_agent
 
 # --- 1. Define the Chatbot Logic for the 'messages' format ---
 

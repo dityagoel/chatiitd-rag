@@ -11,3 +11,4 @@ wheels/
 .env
 
 agentic_chatbot/messages.db
+messages.db

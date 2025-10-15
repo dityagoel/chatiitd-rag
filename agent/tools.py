@@ -1,9 +1,9 @@
 import json
 from langchain_core.tools import tool
 import sqlite3
+from shared import config
 import requests
 from typing import Dict,List, Any
-
 
 
 # load documents
@@ -14,9 +14,9 @@ def read_jsonl(filename):
             res.append(json.loads(line))
     return res
 
-rules_sections = read_jsonl('../sources/jsonl/all_rules.jsonl')
-courses = read_jsonl('../sources/jsonl/courses.jsonl')
-offerings = read_jsonl('../sources/jsonl/courses_offered.jsonl')
+rules_sections = read_jsonl(config.all_rules_path)
+courses = read_jsonl(config.courses_jsonl_path)
+offerings = read_jsonl(config.offered_jsonl_path)
 
 # TOOLS
 @tool
@@ -37,10 +37,6 @@ def get_course_data_tool(course_codes: list[str]) -> str:
         })
     else:
         return "Course not found."
-    
-programme_prompt = ''
-with open('../sources/programme_structures/prompt.md', 'r') as f:
-    programme_prompt = f.read()
 
 @tool
 def query_sqlite_db_tool(query: str) -> str:
@@ -76,7 +72,7 @@ def query_sqlite_db_tool(query: str) -> str:
     if not query.strip().lower().startswith('select'):
         return "Invalid. Only SELECT queries are allowed."
     try:
-        conn = sqlite3.connect('file:../courses.sqlite?mode=ro', uri=True)
+        conn = sqlite3.connect(config.courses_db_conn_string, uri=True)
         cursor = conn.cursor()
         cursor.execute(query)
         rows = cursor.fetchall()
@@ -87,6 +83,9 @@ def query_sqlite_db_tool(query: str) -> str:
     except Exception as e:
         return f"An error occurred: {str(e)}"
 
+programme_prompt = ''
+with open(f'{config.programme_structures_folder_path}/prompt.md', 'r') as f:
+    programme_prompt = f.read()
 @tool
 def get_programme_structure_tool(programme_code: str) -> str:
     """
@@ -114,7 +113,7 @@ def get_programme_structure_tool(programme_code: str) -> str:
     """
     programme_code = programme_code.upper().strip()
     try:
-        with open(f'../sources/programme_structures/{programme_code}.json', 'r') as f:
+        with open(f'{config.programme_structures_folder_path}/{programme_code}.json', 'r') as f:
             programme_data = f.read()
         return programme_prompt + "\n\n" + programme_data
     except FileNotFoundError:
@@ -280,7 +279,6 @@ def get_rules_section_tool(section_name: str) -> str:
     else:
         return "Section not found."
 
-# print(query_sqlite_db_tool('SELECT * from courses WHERE code LIKE "COL1%"'))
 # --- API CONNECTOR FOR DEGREE PLANNER SERVICE ---
 
 # 🛑 IMPORTANT: Update this URL to the actual host and port where you deploy 
