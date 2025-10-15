@@ -16,6 +16,7 @@ QDRANT_URL="http://localhost:6333"
 
 4) Run the script
 ```
-cd agentic_chatbot
-python agent.py
+python -m agent.app
+# or
+python -m agent.agent
 ``` 
