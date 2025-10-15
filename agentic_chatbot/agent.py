@@ -15,10 +15,11 @@ from qdrant_client.http.models import ScoredPoint
 from langchain_core.documents import Document
 import json
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from tools import get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool
+from tools import get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool,generate_degree_plan_tool
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_community.chat_message_histories import SQLChatMessageHistory
+from langchain_core.runnables import RunnableConfig 
 
 
 # Load environment variables from a .env file
@@ -135,7 +136,7 @@ courses_tool = create_retriever_tool(
     """,
 )
 
-tools = [rules_tool, courses_tool, get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool]
+tools = [rules_tool, courses_tool, get_rules_section_tool, get_course_data_tool, get_programme_structure_tool, query_sqlite_db_tool,generate_degree_plan_tool]
 
 
 # --- 4. Create the Conversational Agent ---
@@ -173,9 +174,8 @@ def invoke_memory_agent(input_dict, session_id=None):
     if not session_id:
         return runnable_agent.invoke(input_dict)
     session_id = str(session_id)
-    config = {"configurable": {"session_id": session_id}}
+    config = RunnableConfig(configurable={"session_id": session_id})
     return runnable_agent_with_history.invoke(input_dict, config=config)
-
 print("--- IIT Delhi Academic Chatbot Initialized (Model: Gemini Flash, Reranker: BAAI/bge-reranker-base) ---")
 print("Ask me about courses or institute rules.")
 print("Type 'quit' to exit.")

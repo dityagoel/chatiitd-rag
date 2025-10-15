@@ -1,6 +1,9 @@
 import json
 from langchain_core.tools import tool
 import sqlite3
+import requests
+from typing import Dict,List, Any
+
 
 
 # load documents
@@ -278,3 +281,88 @@ def get_rules_section_tool(section_name: str) -> str:
         return "Section not found."
 
 # print(query_sqlite_db_tool('SELECT * from courses WHERE code LIKE "COL1%"'))
+# --- API CONNECTOR FOR DEGREE PLANNER SERVICE ---
+
+# 🛑 IMPORTANT: Update this URL to the actual host and port where you deploy 
+# the FastAPI Degree Planner Microservice. 
+PLANNER_SERVICE_URL = "http://planner-service-host:8000/v1/plan/generate"
+def call_degree_planner(
+    branch: str, 
+    current_sem: int,
+    completed_courses: List[str], 
+    user_preferences: Dict[str, Any]
+) -> Dict[str, Any]:
+    # --- (The core requests.post(...) logic goes here) ---
+    # ... (This logic handles the actual network request and returns the parsed JSON dict) ...
+    # Placeholder implementation to satisfy the call structure:
+    # 1. Construct the Payload for the API
+    payload = {
+        "branch": branch,
+        "current_sem": current_sem,
+        "courses_completed": completed_courses,
+        "user_constraints": user_preferences
+    }
+    # 2. Send the HTTP Request and Handle Errors
+    try:
+        response = requests.post(PLANNER_SERVICE_URL, json=payload, timeout=20)
+        response.raise_for_status() 
+        return response.json() 
+    except requests.exceptions.RequestException as e:
+        raise ConnectionError(f"Network failure calling planner: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"API call failed: {e}") from e
+# --------------------------------------------------------------------------------------
+
+
+@tool
+def generate_degree_plan_tool(
+    branch: str, 
+    current_sem: int,
+    completed_courses_json: str,  # LLM input: JSON list as a string
+    user_preferences_json: str   # LLM input: JSON object as a string
+) -> str: # LLM output MUST be a string (JSON result)
+    """
+    This tool calls the external Degree Planner Microservice (OR-Tools solver) to generate 
+    an optimized, personalized course schedule. It finds the best sequence of courses 
+    that satisfies all degree requirements and user constraints.
+    
+    Args:
+        branch: The student's program code (e.g., 'EE1', 'CS5').
+        current_sem: The student's current semester (e.g., 5).
+        completed_courses_json: A JSON list of course codes already completed (e.g., '["COL100", "ELL101"]').
+        user_preferences_json: A JSON object defining planning constraints (e.g., '{"target_minor": "VLSI", "max_credits_sem_5": 16}').
+
+    Returns:
+        A JSON string containing the 'status' and the 'plan' data, or a structured error message.
+    """
+    
+    # 1. Parse JSON strings from the LLM input
+    try:
+        completed_courses = json.loads(completed_courses_json)
+        user_preferences = json.loads(user_preferences_json)
+        
+    except json.JSONDecodeError as e:
+        # If the LLM generates invalid JSON, return a structured error for the agent to report
+        return json.dumps({
+            "status": "error", 
+            "message": f"Tool input error: Invalid JSON format provided. Error: {e}"
+        })
+
+    # 2. Call the underlying API function
+    try:
+        planner_response = call_degree_planner(
+            branch=branch,
+            current_sem=current_sem,
+            completed_courses=completed_courses,
+            user_preferences=user_preferences
+        )
+        
+        # 3. Return the API's JSON response as a string
+        return json.dumps(planner_response)
+
+    except (ConnectionError, RuntimeError) as e:
+        # Handle connection or runtime errors from the API call
+        return json.dumps({
+            "status": "error", 
+            "message": f"Planner Service Unreachable/Runtime Error: {e}"
+        })
