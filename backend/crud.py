@@ -1,6 +1,6 @@
 from sqlmodel import Session, select
 from sqlalchemy import desc
-from . import models
+from backend import models
 from typing import List, Optional
 
 # Use the shared engine exposed by models
