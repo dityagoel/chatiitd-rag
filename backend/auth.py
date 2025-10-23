@@ -9,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 
-from . import models
+from backend import models
 
 # Secrets and settings
 JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-in-prod")
