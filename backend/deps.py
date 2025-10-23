@@ -1,5 +1,5 @@
 from sqlmodel import create_engine, Session
-from . import models
+from backend import models
 
 ENGINE = create_engine(models.DATABASE_URL, echo=False)
 
