@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import models, crud, schemas, auth
+from backend import models, crud, schemas, auth
 
 app = FastAPI(title="IITD Agent Backend")
 
